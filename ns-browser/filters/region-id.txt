@@ -1,2 +1,0 @@
-! Indonesia regional profile starter
-! Add properly licensed regional rules here.

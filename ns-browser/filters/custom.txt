@@ -1,5 +1,0 @@
-! NS Browser custom filter starter
-! Use only rules you are licensed/permitted to redistribute.
-||doubleclick.net^
-||googlesyndication.com^
-||googleadservices.com^
