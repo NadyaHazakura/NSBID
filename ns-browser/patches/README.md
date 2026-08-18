@@ -1,1 +1,10 @@
+Place Chromium source patches here.
 
+Suggested integration areas:
+- Android Chrome/browser UI
+- network request filtering
+- content settings
+- translation UI
+- regional filter selection
+- script allowlist
+- privacy controls
