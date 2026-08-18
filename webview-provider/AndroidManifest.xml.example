@@ -1,0 +1,5 @@
+<!-- AOSP/system-image integration template.
+     Do not assume this ordinary APK can replace WebView on a retail device. -->
+<manifest package="io.github.nsbrowser.webview">
+    <application android:label="NS Browser WebView" />
+</manifest>
