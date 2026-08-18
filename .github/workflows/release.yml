@@ -1,1 +1,102 @@
+name: NS Browser - Build APK Releases
 
+on:
+  workflow_dispatch:
+    inputs:
+      chromium_ref:
+        description: "Verified Chromium branch/tag/commit"
+        required: true
+        default: "REPLACE_WITH_VERIFIED_CHROMIUM_REF"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CHROMIUM_REF: ${{ inputs.chromium_ref || 'REPLACE_WITH_VERIFIED_CHROMIUM_REF' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout NS Browser
+        uses: actions/checkout@v4
+
+      - name: Install depot_tools
+        run: |
+          git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+
+      - name: Fetch Chromium Android source
+        run: |
+          mkdir -p chromium
+          cd chromium
+          fetch --nohooks android
+
+      - name: Checkout verified Chromium ref
+        run: |
+          cd chromium/src
+          if [ "$CHROMIUM_REF" = "REPLACE_WITH_VERIFIED_CHROMIUM_REF" ]; then
+            echo "::error::Set a real Chromium branch/tag/commit before building."
+            exit 1
+          fi
+          git fetch --tags --depth=1 origin "$CHROMIUM_REF" || true
+          git checkout "$CHROMIUM_REF"
+
+      - name: Sync Chromium dependencies
+        run: |
+          cd chromium/src
+          gclient sync -D --force --reset
+
+      - name: Apply NS Browser feature layer
+        run: |
+          cp -r "$GITHUB_WORKSPACE/ns-browser/patches/." chromium/src/ 2>/dev/null || true
+
+      - name: Generate ARM64 GN build
+        run: |
+          cd chromium/src
+          gn gen out/NSBrowser --args='
+            target_os="android"
+            target_cpu="arm64"
+            is_official_build=true
+            is_component_build=false
+            is_debug=false
+            symbol_level=0
+            blink_symbol_level=0
+            chrome_public=true
+            use_goma=false
+          '
+
+      - name: Build standalone Chromium APK
+        run: |
+          cd chromium/src
+          autoninja -C out/NSBrowser chrome_public_apk
+
+      - name: Collect browser APK
+        run: |
+          mkdir -p release
+          apk=$(find chromium/src/out/NSBrowser -type f -name "*.apk" | head -n1)
+          test -n "$apk"
+          cp "$apk" release/NS-Browser-arm64-v8a.apk
+
+      - name: Build WebView/AOSP provider
+        run: |
+          echo "WebView provider requires an AOSP/system-image integration build."
+          echo "The provider scaffold is included in this repository."
+          test -f webview-provider/README.md
+
+      - name: Upload release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NS-Browser-APKs
+          path: release/*.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.apk
+          generate_release_notes: true
